@@ -1,10 +1,6 @@
 name = "SecurityNotation"
 version = "0.1.0"
-defaultTargets = ["untitled"]
+defaultTargets = ["SecurityNotation"]
 
 [[lean_lib]]
 name = "SecurityNotation"
-
-[[lean_exe]]
-name = "untitled"
-root = "Main"
