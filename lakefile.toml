@@ -1,9 +1,9 @@
-name = "Untitled"
+name = "SecurityNotation"
 version = "0.1.0"
 defaultTargets = ["untitled"]
 
 [[lean_lib]]
-name = "Untitled"
+name = "SecurityNotation"
 
 [[lean_exe]]
 name = "untitled"
