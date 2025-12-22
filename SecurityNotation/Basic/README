@@ -1,0 +1,7 @@
+This folder should contain:
+
+- Syntax : principles, messages, keys, nonces, timestamps etc
+- Semantics : formal meaning of statements : belief, freshness, seeing etc
+- Notation : P believes X, fresh(x) etc
+- Utilities : Helper functions
+
