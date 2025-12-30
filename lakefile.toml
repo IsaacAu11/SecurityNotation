@@ -4,3 +4,15 @@ defaultTargets = ["SecurityNotation"]
 
 [[lean_lib]]
 name = "SecurityNotation"
+
+# REAL Std (Finset lives here)
+[[require]]
+name = "Std"
+git = "https://github.com/leanprover/std4"
+rev = "v4.26.0"
+
+# Optional extras (only keep if you actually want Batteries features)
+[[require]]
+name = "batteries"
+git = "https://github.com/leanprover-community/batteries"
+rev = "v4.26.0"

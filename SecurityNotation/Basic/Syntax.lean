@@ -13,7 +13,7 @@ syntax refers to the shape, not meaning. What you are allowed to write, not what
 -- identity: principal actors - alice or bob
 -- unsure about what else is needed, need to read more on papers first.
 
-
+import Std
 
 inductive Role : Type where
   | initiator
@@ -28,4 +28,19 @@ structure Principal : Type where
   role : Role
   deriving DecidableEq, Repr -- means i can compare principals, and i can display it for debugging with print
 
--- keys : can be symmetric or asymmetric, public or private, session keys
+-- keys : can be symmetric or asymmetric, public or private, session key
+
+inductive keyType : Type where
+  | longTermSymmetric
+  | privateKey
+  | publicKey
+  | sessionKey
+  -- may add Ephemeral but will see
+  deriving DecidableEq, Repr
+
+structure Key : Type where
+  id : Nat
+  type : keyType
+  owner : Option Principal
+  holders : List Principal
+  deriving Repr
