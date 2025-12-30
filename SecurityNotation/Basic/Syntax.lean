@@ -39,8 +39,37 @@ inductive keyType : Type where
   deriving DecidableEq, Repr
 
 structure Key : Type where
+  private mk ::
   id : Nat
   type : keyType
   owner : Option Principal
   holders : List Principal
   deriving Repr
+
+-- add a holder to a key as finset does not work, must add holder to list and remove duplicates
+def Key.new
+  (id : Nat)
+  (t : keyType)
+  (owner : Option Principal)
+  (holders : List Principal) : Key := Key.mk id t owner (holders.eraseDups)
+
+--nonces: random numbers used to prevent replay attacks
+--will be using timestamp || random bits
+structure Nonce : Type where
+  timestamp : UInt64
+  randomNum : UInt64
+  deriving DecidableEq, Repr
+
+namespace Nonce
+
+def now : IO UInt64 := do
+  let time : Nat ← IO.monoMsNow
+  pure time.toUInt64
+
+--now i need to create fresh and it must be now + randomNum
+
+def fresh : (IO Nonce) := do
+  let ts ← now
+  let maxU64 : Nat := (UInt64.size).pow 2 - 1
+  let r : Nat ← IO.rand 0 maxU64
+  pure {timestamp := ts, randomNum := r.toUInt64}
