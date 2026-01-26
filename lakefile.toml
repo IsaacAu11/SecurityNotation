@@ -16,3 +16,9 @@ rev = "v4.26.0"
 name = "batteries"
 git = "https://github.com/leanprover-community/batteries"
 rev = "v4.26.0"
+
+# Mathlib
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.26.0"
