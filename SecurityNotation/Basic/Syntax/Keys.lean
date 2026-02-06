@@ -1,6 +1,6 @@
 -- keys : can be symmetric or asymmetric, public or private, session key
-import SecurityNotation.Basic.Syntax.Principal
 import Std
+import SecurityNotation.Basic.Syntax.Principal
 
 inductive keyType : Type where
   | longTermSymmetric
@@ -16,7 +16,7 @@ structure Key : Type where
   type : keyType
   owner : Option Principal
   holders : List Principal
-  deriving Repr
+  deriving DecidableEq, Repr
 
 -- add a holder to a key as finset does not work, must add holder to list and remove duplicates
 def Key.new
