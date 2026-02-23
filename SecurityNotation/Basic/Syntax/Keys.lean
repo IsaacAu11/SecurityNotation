@@ -1,9 +1,7 @@
 -- keys : can be symmetric or asymmetric, public or private, session key
-import Std
 import SecurityNotation.Basic.Syntax.Principal
 
 inductive keyType : Type where
-  | longTermSymmetric
   | privateKey
   | publicKey
   | sessionKey
