@@ -39,7 +39,7 @@ def keyA : Key := Key.new 1 keyType.publicKey (some alice) []
 variable (kb : Principal → Message → Prop)
 
 theorem alice_knows (alice : Principal) (m : Message) :
-  kb alice m → knows kb alice m := by
+  kb alice m → derives kb alice m := by
   apply knows.base
 
 --testing for alice_decrypts
@@ -49,12 +49,13 @@ def alice_priv_key : Key :=
 --creating the knowledge base for what alie konws and can draw from
 def kb_decrypt (p : Principal) (m : Message) : Prop :=
   match p.name with
+  -- says that alice knows that she has the private key for herself
   | "alice" =>
     m = Message.key alice_priv_key
   | _ => False
 
 theorem alice_decrypt (p: Principal) (m : Message) :
-  p.name = "alice" → knows kb_decrypt p (Message.enc m alice_priv_key) → knows kb_decrypt p m := by
+  p.name = "alice" → derives kb_decrypt p (Message.enc m alice_priv_key) → derives kb_decrypt p m := by
   intro h_name h_enc_m
   apply knows.decrypt p m alice_priv_key
   . exact h_enc_m
