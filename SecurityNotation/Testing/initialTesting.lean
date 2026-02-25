@@ -19,8 +19,6 @@ def same (a b : Principal) : Bool :=
 def example_b : IO Unit := do
   let mynonce ← Nonce.fresh
   IO.println s!"my fresh nonce is {mynonce.randomNum} and {mynonce.timestamp}"
-  IO.println "--------------------------------"
-  IO.println s!"my fresh nonce is {mynonce.randomNum} and {mynonce.timestamp}"
 #eval example_b
 
 --testing the messages
