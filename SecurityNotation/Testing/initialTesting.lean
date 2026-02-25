@@ -34,13 +34,13 @@ def keyA : Key := Key.new 1 keyType.publicKey (some alice) []
 
 #eval message1 "hello world!" alice keyA
 
---testing knows logic from logic.lean
+--testing derives logic from logic.lean
 
 variable (kb : Principal → Message → Prop)
 
 theorem alice_knows (alice : Principal) (m : Message) :
-  kb alice m → derives kb alice m := by
-  apply knows.base
+  kb alice m → Derives kb alice m := by
+  apply Derives.base
 
 --testing for alice_decrypts
 --creating a private key for alice
@@ -49,17 +49,17 @@ def alice_priv_key : Key :=
 --creating the knowledge base for what alie konws and can draw from
 def kb_decrypt (p : Principal) (m : Message) : Prop :=
   match p.name with
-  -- says that alice knows that she has the private key for herself
+  -- says that alice derives that she has the private key for herself
   | "alice" =>
     m = Message.key alice_priv_key
   | _ => False
 
 theorem alice_decrypt (p: Principal) (m : Message) :
-  p.name = "alice" → derives kb_decrypt p (Message.enc m alice_priv_key) → derives kb_decrypt p m := by
+  p.name = "alice" → Derives kb_decrypt p (Message.enc m alice_priv_key) → Derives kb_decrypt p m := by
   intro h_name h_enc_m
-  apply knows.decrypt p m alice_priv_key
+  apply Derives.decrypt p m alice_priv_key
   . exact h_enc_m
-  · apply knows.base
+  · apply Derives.base
     unfold kb_decrypt
     rw [h_name]
     simp
@@ -68,6 +68,6 @@ theorem alice_decrypt (p: Principal) (m : Message) :
 
 #check alice_knows
 
-#check knows.base
+#check Derives.base
 
-#check knows.decrypt
+#check Derives.decrypt
