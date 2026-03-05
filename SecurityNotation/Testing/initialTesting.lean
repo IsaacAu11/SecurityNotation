@@ -16,13 +16,6 @@ def same (a b : Principal) : Bool :=
 #eval same (Principal.mk 1 "Alice" Role.responder) (Principal.mk 1 "Alice" Role.responder)
 #eval same (Principal.mk 1 "Bob" Role.responder) (Principal.mk 1 "Alice" Role.responder)
 
-def example_b : IO Unit := do
-  let mynonce ← Nonce.fresh
-  IO.println s!"my fresh nonce is {mynonce.randomNum} and {mynonce.timestamp}"
-#eval example_b
-
---testing the messages
-
 -- message encoding a message to a principal using a public key
 def message1 (a1 : String) (alice : Principal) (pKb : Key) : Message :=
   Message.enc (Message.pair (Message.message a1) (Message.agent alice)) pKb
@@ -33,6 +26,7 @@ def keyA : Key := Key.new 1 keyType.publicKey (some alice) []
 #eval message1 "hello world!" alice keyA
 
 --testing derives logic from logic.lean
+section DerivesTesting
 
 variable (kb : Principal → Message → Prop)
 
@@ -59,6 +53,7 @@ theorem alice_decrypt (p: Principal) (m : Message) :
   intro h_name h_enc_m
   apply Derives.decrypt p m alice_priv_key
   . exact h_enc_m
+
   · apply Derives.base
     unfold kb_decrypt
     rw [h_name]
@@ -71,3 +66,7 @@ theorem alice_decrypt (p: Principal) (m : Message) :
 #check Derives.base
 
 #check Derives.decrypt
+
+end DerivesTesting
+
+
