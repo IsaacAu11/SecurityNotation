@@ -5,6 +5,8 @@ import SecurityNotation.Basic.Syntax.Keys
 inductive Event : Type where
   | says : Principal → Principal → Message → Event
   | gets : Principal → Message → Event
+  --recieves Keys
+  --sends key
   deriving Repr, DecidableEq
 
 abbrev Trace := List Event
@@ -19,4 +21,4 @@ def agent_view (p : Principal) (t : Trace) : Trace :=
     match e with
     | Event.says sender reciever _ => sender = p || reciever = p
     | Event.gets reciever _ => reciever = p
-  )
+  ) 

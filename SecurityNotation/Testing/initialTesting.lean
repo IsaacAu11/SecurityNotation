@@ -40,6 +40,8 @@ theorem alice_knows (alice : Principal) (m : Message) :
   kb alice m → Derives kb alice m := by
   apply Derives.base
 
+
+
 --testing for alice_decrypts
 --creating a private key for alice
 def alice_priv_key : Key :=
@@ -60,7 +62,7 @@ theorem alice_decrypt (p: Principal) (m : Message) :
   · apply Derives.base
     unfold kb_decrypt
     rw [h_name]
-    simp
+    rfl
 
 #check alice_decrypt
 
