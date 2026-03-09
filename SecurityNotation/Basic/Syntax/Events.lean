@@ -21,4 +21,4 @@ def agent_view (p : Principal) (t : Trace) : Trace :=
     match e with
     | Event.says sender reciever _ => sender = p || reciever = p
     | Event.gets reciever _ => reciever = p
-  )  
+  )    

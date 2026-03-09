@@ -28,36 +28,30 @@ def keyA : Key := Key.new 1 keyType.publicKey (some alice) []
 --testing derives logic from logic.lean
 section DerivesTesting
 
-variable (kb : Principal → Message → Prop)
+variable (kb :  Message → Prop)
 
 theorem alice_knows (alice : Principal) (m : Message) :
-  kb alice m → Derives kb alice m := by
+  kb m → Derives kb alice m := by
   apply Derives.base
-
-
 
 --testing for alice_decrypts
 --creating a private key for alice
 def alice_priv_key : Key :=
-  Key.new 1 keyType.publicKey (some alice) [alice]
---creating the knowledge base for what alie konws and can draw from
-def kb_decrypt (p : Principal) (m : Message) : Prop :=
-  match p.name with
-  -- says that alice derives that she has the private key for herself
-  | "alice" =>
-    m = Message.key alice_priv_key
-  | _ => False
+  Key.new 1 keyType.privateKey (some alice) [alice]
+def alice_public_key : Key :=
+  Key.new 2 keyType.publicKey (some alice) [alice]
 
-theorem alice_decrypt (p: Principal) (m : Message) :
-  p.name = "alice" → Derives kb_decrypt p (Message.enc m alice_priv_key) → Derives kb_decrypt p m := by
-  intro h_name h_enc_m
-  apply Derives.decrypt p m alice_priv_key
-  . exact h_enc_m
-
+-- FIX the key as priv and public key arent working 
+theorem alice_decrypt (m : Message) :
+  Derives (Initial_knowledge alice) alice (Message.enc m alice_priv_key) → 
+  Derives (Initial_knowledge alice) alice m := by
+  intro h_enc_m
+  apply Derives.decrypt alice m alice_priv_key
+  · exact h_enc_m
   · apply Derives.base
-    unfold kb_decrypt
-    rw [h_name]
-    rfl
+    apply Initial_knowledge.knows_own_private_key
+    · rfl        
+    · rfl            
 
 #check alice_decrypt
 
