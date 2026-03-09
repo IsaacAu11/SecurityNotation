@@ -37,21 +37,26 @@ theorem alice_knows (alice : Principal) (m : Message) :
 --testing for alice_decrypts
 --creating a private key for alice
 def alice_priv_key : Key :=
-  Key.new 1 keyType.privateKey (some alice) [alice]
+  Key.new 1 keyType.privateKey (some alice) [alice] (some 2)
 def alice_public_key : Key :=
-  Key.new 2 keyType.publicKey (some alice) [alice]
+  Key.new 2 keyType.publicKey (some alice) [alice] (some 1)
 
 -- FIX the key as priv and public key arent working 
 theorem alice_decrypt (m : Message) :
-  Derives (Initial_knowledge alice) alice (Message.enc m alice_priv_key) → 
+  Derives (Initial_knowledge alice) alice (Message.enc m alice_public_key) → 
   Derives (Initial_knowledge alice) alice m := by
   intro h_enc_m
-  apply Derives.decrypt alice m alice_priv_key
-  · exact h_enc_m
-  · apply Derives.base
+  apply Derives.decrypt alice m alice_public_key alice_priv_key -- applies the derives rule that creates 5 subgoals for us to solve
+  . exact h_enc_m
+  . apply Derives.base
     apply Initial_knowledge.knows_own_private_key
-    · rfl
-    · rfl
+    . rfl
+    . rfl
+  · rfl 
+  · rfl     
+  · rfl    
+
+
 
 #check alice_decrypt
 
