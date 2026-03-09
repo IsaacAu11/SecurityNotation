@@ -14,6 +14,7 @@ structure Key : Type where
   type : keyType
   owner : Option Principal
   holders : List Principal
+  paired_key_id : Option Nat
   deriving DecidableEq, Repr
 
 -- add a holder to a key as finset does not work, must add holder to list and remove duplicates
@@ -21,4 +22,6 @@ def Key.new
   (id : Nat)
   (t : keyType)
   (owner : Option Principal)
-  (holders : List Principal) : Key := Key.mk id t owner (holders.eraseDups)
+  (holders : List Principal)
+  (paired_id : Option Nat := none) : Key := 
+  Key.mk id t owner (holders.eraseDups) paired_id

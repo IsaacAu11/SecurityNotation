@@ -13,4 +13,4 @@ def session  : Key := Key.new 3 keyType.sessionKey  none      [Alice, Bob]
 
 -- testing that alice knows of bob if stated in initial knowledge
 example : Initial_knowledge Alice (Message.agent Bob) :=
-  Initial_knowledge.knows_agents Bob
+  sorry

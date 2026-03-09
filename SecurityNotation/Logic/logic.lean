@@ -17,7 +17,13 @@ inductive Derives (knowledge_base : Message → Prop) : Principal → Message �
   -- decrypting and reading messages
   | pair_unpack_l : ∀ p m1 m2, Derives knowledge_base p (Message.pair m1 m2) → Derives knowledge_base p m1
   | pair_unpack_r : ∀ p m1 m2, Derives knowledge_base p (Message.pair m1 m2) → Derives knowledge_base p m2
-  | decrypt : ∀ p m k, Derives knowledge_base p (Message.enc m k) → Derives knowledge_base p (Message.key k) → Derives knowledge_base p m
+  | decrypt : ∀ p m k_pub k_priv, 
+        Derives knowledge_base p (Message.enc m k_pub) → 
+        Derives knowledge_base p (Message.key k_priv) →
+        k_pub.type = keyType.publicKey →
+        k_priv.type = keyType.privateKey →
+        k_priv.paired_key_id = some k_pub.id →
+        Derives knowledge_base p m
   -- creating and packing together a message
   | pair_pack : ∀ p m1 m2, Derives knowledge_base p m1 → Derives knowledge_base p m2 → Derives knowledge_base p (Message.pair m1 m2)
   | encrypt : ∀ p m k, Derives knowledge_base p m → Derives knowledge_base p (Message.key k) → Derives knowledge_base p (Message.enc m k)
