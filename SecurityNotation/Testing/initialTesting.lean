@@ -13,14 +13,14 @@ import SecurityNotation.Logic.Logic
 def same (a b : Principal) : Bool :=
   decide (a = b)
 
-#eval same (Principal.mk 1 "Alice" Role.responder) (Principal.mk 1 "Alice" Role.responder)
-#eval same (Principal.mk 1 "Bob" Role.responder) (Principal.mk 1 "Alice" Role.responder)
+#eval same (Principal.mk 1 "Alice" Role.responder []) (Principal.mk 1 "Alice" Role.responder [])
+#eval same (Principal.mk 1 "Bob" Role.responder []) (Principal.mk 1 "Alice" Role.responder [])
 
 -- message encoding a message to a principal using a public key
 def message1 (a1 : String) (alice : Principal) (pKb : Key) : Message :=
   Message.enc (Message.pair (Message.message a1) (Message.agent alice)) pKb
 
-def alice : Principal := {id := 1,name := "Alice",role :=  Role.initiator}
+def alice : Principal := {id := 1,name := "Alice",role :=  Role.initiator, known_principals := []}
 def keyA : Key := Key.new 1 keyType.publicKey (some alice) []
 
 #eval message1 "hello world!" alice keyA
@@ -50,8 +50,8 @@ theorem alice_decrypt (m : Message) :
   · exact h_enc_m
   · apply Derives.base
     apply Initial_knowledge.knows_own_private_key
-    · rfl        
-    · rfl            
+    · rfl
+    · rfl
 
 #check alice_decrypt
 

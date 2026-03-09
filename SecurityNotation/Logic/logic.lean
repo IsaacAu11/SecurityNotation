@@ -27,7 +27,7 @@ inductive Derives (knowledge_base : Message → Prop) : Principal → Message �
 -- this is the static knowledge that everyone knows before messaging
 inductive Initial_knowledge (p : Principal) : Message → Prop where
 -- FIX this shouldnt be showing everything, only showing other known principals
-  | knows_agents : ∀ (a : Principal), Initial_knowledge p (Message.agent a)
+  | knows_agents : ∀ (a : Principal), a.id ∈ p.known_principals  → Initial_knowledge p (Message.agent a)
   -- this says that if the key is public they they can know it
   | knows_public_keys : ∀ (k : Key), k.type = keyType.publicKey → Initial_knowledge p (Message.key k)
   -- this states that they will know their own private key
