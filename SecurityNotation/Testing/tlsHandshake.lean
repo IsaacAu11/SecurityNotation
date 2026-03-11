@@ -72,8 +72,26 @@ theorem aliceKnowsServerPubKey :
       . decide
       . rfl
 
+-- this one was a bit harder to solve, we are trying to prove that server knows premastersecret
+-- we need to go into derives and see that server can work out the message sent because it knows the Keys
+-- then we need to go into initial knowledge and see that it knows the keys from there. everything else 
+-- is juste rfl to prove known knowledge.
 theorem serverDerivePremastersecret : 
     Knows Server test_TLS (Message.nonce preMasterSecret) := by
     apply Knows.from_derives
-    apply Derives.decrypt 
-    . 
+    apply Derives.decrypt (k_pub := ServerPublicKey) (k_priv := ServerPrivateKey) 
+    . apply Derives.base
+      apply Knows.from_trace
+      apply Trace_Knowledge.principal_has_recieved (s := Alice) (r := Server)
+      . decide
+      . rfl
+    . apply Derives.base
+      apply Knows.from_initial  
+      apply Initial_knowledge.knows_own_private_key
+      . rfl
+      . rfl
+    . rfl
+    . rfl
+    . rfl
+
+
