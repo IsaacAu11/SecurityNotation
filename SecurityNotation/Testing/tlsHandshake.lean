@@ -7,6 +7,7 @@ import SecurityNotation.Basic.Syntax.Nonces
 
 def Alice  : Principal := {id := 1, name := "Alice",  role := Role.initiator, known_principals := [2]}
 def Server : Principal := {id := 2, name := "Server", role := Role.server,    known_principals := [1]}
+def Eve : Principal := {id := 3, name := "Eve", role := Role.adversary, known_principals := [1,2]}
 
 def ServerPublicKey  : Key := Key.new 1 keyType.publicKey  (some Server) [Server] (some 2)
 def ServerPrivateKey : Key := Key.new 2 keyType.privateKey (some Server) [Server] (some 1)
@@ -94,4 +95,27 @@ theorem serverDerivePremastersecret :
     . rfl
     . rfl
 
+-- this is trying to prove that eve cannot access anything, we do this by doing a proof by contradiction.
+-- go through every case (Knows) and prove that eve cannot access premastersecret
+mutual
+theorem eveHasNoAccessPremastersecret : 
+    ¬ Knows Eve test_TLS (Message.nonce preMasterSecret) := by
+    intro h
+    cases h with
+    | from_initial hi => contradiction
+    | from_trace m ht =>
+      cases ht with
+      | principal_has_said => contradiction
+      | principal_has_recieved => contradiction
+      | principal_has_intercepted => contradiction
+    | from_derives m hd => exact eveCannotDerivePremastersecret hd
 
+theorem eveCannotDerivePremastersecret :
+    ¬ Derives (Knows Eve test_TLS) Eve (Message.nonce preMasterSecret) := by
+    intro h
+    cases h with
+    | base p hk => exact eveHasNoAccessPremastersecret hk
+    | pair_unpack_l => 
+    | pair_unpack_r => sorry
+    | decrypt => sorry
+end
