@@ -3,6 +3,7 @@ inductive Role : Type where
   | responder
   | server
   | client
+  | adversary
   deriving DecidableEq, Repr
 
 -- a principal is a unique identifier, name and role
