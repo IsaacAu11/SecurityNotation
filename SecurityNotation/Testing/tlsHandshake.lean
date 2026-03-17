@@ -24,22 +24,18 @@ def deriveSessionKey (pms : Nonce) (cn sn : Nonce) : Key :=
 def sessionKey : Key := deriveSessionKey preMasterSecret aliceNonce serverNonce
 
 def test_TLS : Trace := [
-  --step 1: Alice to Server : aliceNonce to estabish communication
-  Event.says Alice Server 
+ Event.says Alice Server 
     (Message.nonce aliceNonce),
-  --step 2: Server to Alice : sends back a pair of nonce and its own public key
   Event.says Server Alice  
     (Message.pair
       (Message.nonce serverNonce)
       (Message.key ServerPublicKey)),
-  --step 3: Alice to Server : sends the premastersecret encoded by public key so server can decrypt it
-  --        this is needed to allow both principals to derive the sessionKey
   Event.says Alice Server  
     (Message.enc
       (Message.nonce preMasterSecret)
       ServerPublicKey),
-  --step 4 : Server to Alice : Final step where server sends alices nonce encrypted with the session key to ensure that 
-  --         Alice knows Server is repsonding to the handshake in step 1 and knows it is server who she is talking to.
+  -- Eve intercepts the premaster secret, FIX [delete this to show that eve has premastersecret]
+  Event.gets Eve (Message.nonce preMasterSecret),
   Event.says Server Alice  
     (Message.enc
       (Message.nonce aliceNonce)
@@ -137,10 +133,14 @@ theorem eve_knows_nonce_free (m : Message) (h : Knows Eve test_TLS m) : NonceFre
   | intercepted _ ht            => exact absurd ht (eve_intercepted_not_in_trace _)
   | pair_pack _ _ _ _ ih1 ih2   => exact NonceFree.pair _ _ ih1 ih2
   | encrypt _ _ _ _ ihm _       => exact NonceFree.enc _ _ ihm
+  -- what we do here is take the left half of a pair and use exact to prove it is nonce free
   | pair_unpack_l _ _ _ ih      =>
       cases ih with | pair _ _ h1 _ => exact h1
+  -- the same here but with the right half
   | pair_unpack_r _ _ _ ih      =>
       cases ih with | pair _ _ _ h2 => exact h2
+  -- this applies the same logic but with encryption, given an enc message, it is only nonce free if the message inside
+  -- is nonce free. therefore we encode the message and exact hm to prove it is nonce free. 
   | decrypt _ _ _ _ _ _ _ _ ih_enc _ =>
       cases ih_enc with | enc _ _ hm => exact hm
 
