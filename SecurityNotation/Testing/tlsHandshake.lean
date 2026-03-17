@@ -56,66 +56,98 @@ def test_TLS : Trace := [
 -- this theorem is pretty self explanatory, it proves that the server knows alice nonce because it was sent it.
 theorem serverKnowsAliceNonce :
     Knows Server test_TLS (Message.nonce aliceNonce) := by
-      apply Knows.from_trace
-      apply Trace_Knowledge.principal_has_recieved (s := Alice) (r := Server)
-      . decide 
-      . rfl
+      apply Knows.received (s := Alice)
+      . decide
 
 -- this theorem is similar to the last one but adds the property that it needs unpacking
--- to solve this we firstly break it down with derives and then look in trace
-theorem aliceKnowsServerPubKey : 
+-- to solve this we firstly break it down with pair_unpack and then look in trace
+theorem aliceKnowsServerPubKey :
     Knows Alice test_TLS (Message.key ServerPublicKey) := by
-      apply Knows.from_derives
-      apply Derives.pair_unpack_r (m1 := Message.nonce serverNonce )
-      apply Derives.base
-      apply Knows.from_trace
-      apply Trace_Knowledge.principal_has_recieved (s := Server) (r := Alice)
+      apply Knows.pair_unpack_r (m1 := Message.nonce serverNonce)
+      apply Knows.received (s := Server)
       . decide
-      . rfl
 
 -- this one was a bit harder to solve, we are trying to prove that server knows premastersecret
--- we need to go into derives and see that server can work out the message sent because it knows the Keys
--- then we need to go into initial knowledge and see that it knows the keys from there. everything else 
--- is juste rfl to prove known knowledge.
-theorem serverDerivePremastersecret : 
+-- we need to use decrypt and see that server can work out the message sent because it knows the Keys
+-- then we need to show it knows its own private key. everything else
+-- is just rfl to prove known knowledge.
+theorem serverDerivePremastersecret :
     Knows Server test_TLS (Message.nonce preMasterSecret) := by
-    apply Knows.from_derives
-    apply Derives.decrypt (k_pub := ServerPublicKey) (k_priv := ServerPrivateKey) 
-    . apply Derives.base
-      apply Knows.from_trace
-      apply Trace_Knowledge.principal_has_recieved (s := Alice) (r := Server)
+    apply Knows.decrypt (k_pub := ServerPublicKey) (k_priv := ServerPrivateKey)
+    . apply Knows.received (s := Alice)
       . decide
-      . rfl
-    . apply Derives.base
-      apply Knows.from_initial  
-      apply Initial_knowledge.knows_own_private_key
+    . apply Knows.knows_own_private_key
       . rfl
       . rfl
     . rfl
     . rfl
     . rfl
 
--- this is trying to prove that eve cannot access anything, we do this by doing a proof by contradiction.
--- go through every case (Knows) and prove that eve cannot access premastersecret
-mutual
-theorem eveHasNoAccessPremastersecret : 
+
+
+
+
+section EveCannotDerivePreMasterSecret
+
+--firstly some helper theorems
+
+-- Step 1: Eve has zero trace events, these are used to prove that Eve has not interacted with the trace
+private theorem eve_sent_not_in_trace (r : Principal) (m : Message) :
+    (Event.says Eve r m) ∉ test_TLS := by
+  simp [test_TLS, Eve, Alice, Server]
+
+private theorem eve_received_not_in_trace (s : Principal) (m : Message) :
+    (Event.says s Eve m) ∉ test_TLS := by
+  simp [test_TLS, Eve, Alice, Server]
+
+private theorem eve_intercepted_not_in_trace (m : Message) :
+    (Event.gets Eve m) ∉ test_TLS := by
+  simp [test_TLS]
+
+
+
+-- here we create a new noncefree inductive predicate to prove that Eve never recieves a premastersecret (nonce)
+-- this is needed as pair_unppack and decrypt are both recursive as the inside of each are both messages that could possibly
+-- contain aother pair that would need to be unpacked or an encoded message that needs decrypting 
+-- we use nonce free so that once we look at the message underneath, as long as it falls under nonce free, we can conclude 
+-- that putting them together or encrypting them doesnt give us a nonce so it cannot possibly be in there.
+
+inductive NonceFree : Message → Prop where
+  | msg   : ∀ s,     NonceFree (Message.message s)
+  | agent : ∀ p,     NonceFree (Message.agent p)
+  | key   : ∀ k,     NonceFree (Message.key k)
+  | pair  : ∀ m1 m2, NonceFree m1 → NonceFree m2 → NonceFree (Message.pair m1 m2)
+  | enc   : ∀ m k,   NonceFree m  → NonceFree (Message.enc m k)
+
+
+-- here we are applying the nonce free predicate to conclude that Eve cannot know the premastersecret
+-- given the message and h, we can apply it to either the inductive typing to see that there aren't any nonces
+-- in the Nonce free type so she cannot possibly know premaster secret, or we use the helper theorems
+-- to prove that they were never in the trace.
+
+
+theorem eve_knows_nonce_free (m : Message) (h : Knows Eve test_TLS m) : NonceFree m := by
+  induction h with
+  | knows_agents a _            => exact NonceFree.agent a
+  | knows_public_keys k _       => exact NonceFree.key k
+  | knows_own_private_key k _ _ => exact NonceFree.key k
+  | held_keys k _               => exact NonceFree.key k
+  | sent r _ ht                 => exact absurd ht (eve_sent_not_in_trace r _)
+  | received s _ ht             => exact absurd ht (eve_received_not_in_trace s _)
+  | intercepted _ ht            => exact absurd ht (eve_intercepted_not_in_trace _)
+  | pair_pack _ _ _ _ ih1 ih2   => exact NonceFree.pair _ _ ih1 ih2
+  | encrypt _ _ _ _ ihm _       => exact NonceFree.enc _ _ ihm
+  | pair_unpack_l _ _ _ ih      =>
+      cases ih with | pair _ _ h1 _ => exact h1
+  | pair_unpack_r _ _ _ ih      =>
+      cases ih with | pair _ _ _ h2 => exact h2
+  | decrypt _ _ _ _ _ _ _ _ ih_enc _ =>
+      cases ih_enc with | enc _ _ hm => exact hm
+
+-- then we have the final proof which states that she doesnt know the premastersecret by applying the previous theorems
+theorem EveCannotDerivePremastersecret :
     ¬ Knows Eve test_TLS (Message.nonce preMasterSecret) := by
-    intro h
-    cases h with
-    | from_initial hi => contradiction
-    | from_trace m ht =>
-      cases ht with
-      | principal_has_said => contradiction
-      | principal_has_recieved => contradiction
-      | principal_has_intercepted => contradiction
-    | from_derives m hd => exact eveCannotDerivePremastersecret hd
+  intro h
+  cases eve_knows_nonce_free _ h
 
-theorem eveCannotDerivePremastersecret :
-    ¬ Derives (Knows Eve test_TLS) Eve (Message.nonce preMasterSecret) := by
-    intro h
-    cases h with
-    | base p hk => exact eveHasNoAccessPremastersecret hk
-    | pair_unpack_l => 
-    | pair_unpack_r => sorry
-    | decrypt => sorry
-end
+end EveCannotDerivePreMasterSecret
