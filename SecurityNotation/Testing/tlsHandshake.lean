@@ -35,7 +35,7 @@ def test_TLS : Trace := [
       (Message.nonce preMasterSecret)
       ServerPublicKey),
   -- Eve intercepts the premaster secret, FIX [delete this to show that eve has premastersecret]
-  Event.gets Eve (Message.nonce preMasterSecret),
+  -- Event.gets Eve (Message.nonce preMasterSecret),
   Event.says Server Alice  
     (Message.enc
       (Message.nonce aliceNonce)

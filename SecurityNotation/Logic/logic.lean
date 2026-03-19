@@ -6,7 +6,7 @@ import SecurityNotation.Basic.Syntax.Events
 section Knows
 
 inductive Knows (p : Principal) (t : Trace) : Message → Prop where
-  -- === Initial knowledge ===
+  -- === initial knowledge ===
   | knows_agents : ∀ (a : Principal),
       a.id ∈ p.known_principals →
       Knows p t (Message.agent a)
@@ -21,18 +21,18 @@ inductive Knows (p : Principal) (t : Trace) : Message → Prop where
       p ∈ k.holders →
       Knows p t (Message.key k)
 
-  -- === Trace knowledge ===
+  -- === trace knowledge ===
   | sent : ∀ r m,
-      (Event.says p r m) ∈ t →
+      (Event.send p r m) ∈ t →
       Knows p t m
   | received : ∀ s m,
-      (Event.says s p m) ∈ t →
+      (Event.send s p m) ∈ t →
       Knows p t m
   | intercepted : ∀ m,
-      (Event.gets p m) ∈ t →
+      (Event.recieve p m) ∈ t →
       Knows p t m
 
-  -- === Dolev-Yao derivation rules ===
+  -- === dolev-yao derivation rules ===
   | pair_unpack_l : ∀ m1 m2,
       Knows p t (Message.pair m1 m2) →
       Knows p t m1
@@ -54,5 +54,9 @@ inductive Knows (p : Principal) (t : Trace) : Message → Prop where
       Knows p t m →
       Knows p t (Message.key k) →
       Knows p t (Message.enc m k)
-
+  -- === the adversary rules ===
+  | adversary_observes : ∀ s r m,
+      p.role = Role.adversary →
+      (Event.send s r m) ∈ t →
+      Knows p t m
 end Knows
