@@ -54,7 +54,7 @@ inductive Knows (p : Principal) (t : Trace) : Message → Prop where
       Knows p t m →
       Knows p t (Message.key k) →
       Knows p t (Message.enc m k)
-  -- === the adversary rules ===
+  -- === the adversary sees ===
   | adversary_observes : ∀ s r m,
       p.role = Role.adversary →
       (Event.send s r m) ∈ t →
