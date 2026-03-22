@@ -24,22 +24,27 @@ def deriveSessionKey (pms : Nonce) (cn sn : Nonce) : Key :=
 def sessionKey : Key := deriveSessionKey preMasterSecret aliceNonce serverNonce
 
 def test_TLS : Trace := [
- Event.says Alice Server 
-    (Message.nonce aliceNonce),
-  Event.says Server Alice  
-    (Message.pair
-      (Message.nonce serverNonce)
-      (Message.key ServerPublicKey)),
-  Event.says Alice Server  
-    (Message.enc
-      (Message.nonce preMasterSecret)
-      ServerPublicKey),
-  -- Eve intercepts the premaster secret, FIX [delete this to show that eve has premastersecret]
-  -- Event.gets Eve (Message.nonce preMasterSecret),
-  Event.says Server Alice  
-    (Message.enc
-      (Message.nonce aliceNonce)
-      sessionKey)
+  -- Step 1: Alice sends her nonce, adversary forwards it to Server
+  Event.send Alice Server (Message.nonce aliceNonce),
+  Event.recieve Server (Message.nonce aliceNonce),
+
+  -- Step 2: Server sends nonce + public key, adversary forwards to Alice
+  Event.send Server Alice
+    (Message.pair (Message.nonce serverNonce) (Message.key ServerPublicKey)),
+  Event.recieve Alice
+    (Message.pair (Message.nonce serverNonce) (Message.key ServerPublicKey)),
+
+  -- Step 3: Alice sends encrypted premaster secret, adversary forwards to Server
+  Event.send Alice Server
+    (Message.enc (Message.nonce preMasterSecret) ServerPublicKey),
+  Event.recieve Server
+    (Message.enc (Message.nonce preMasterSecret) ServerPublicKey),
+
+  -- Step 4: Server sends encrypted confirmation, adversary forwards to Alice
+  Event.send Server Alice
+    (Message.enc (Message.nonce aliceNonce) sessionKey),
+  Event.recieve Alice
+    (Message.enc (Message.nonce aliceNonce) sessionKey)
 ]
 
 /- some proofs i could do:
@@ -69,7 +74,8 @@ theorem aliceKnowsServerPubKey :
 -- is just rfl to prove known knowledge.
 theorem serverDerivePremastersecret :
     Knows Server test_TLS (Message.nonce preMasterSecret) := by
-    apply Knows.decrypt (k_pub := ServerPublicKey) (k_priv := ServerPrivateKey)
+    apply Knows.decrypt (k_pub := 
+    ServerPublicKey) (k_priv := ServerPrivateKey)
     . apply Knows.received (s := Alice)
       . decide
     . apply Knows.knows_own_private_key
@@ -89,16 +95,12 @@ section EveCannotDerivePreMasterSecret
 
 -- Step 1: Eve has zero trace events, these are used to prove that Eve has not interacted with the trace
 private theorem eve_sent_not_in_trace (r : Principal) (m : Message) :
-    (Event.says Eve r m) ∉ test_TLS := by
+    (Event.send Eve r m) ∉ test_TLS := by
   simp [test_TLS, Eve, Alice, Server]
 
-private theorem eve_received_not_in_trace (s : Principal) (m : Message) :
-    (Event.says s Eve m) ∉ test_TLS := by
+private theorem eve_received_not_in_trace (m : Message) :
+    (Event.recieve Eve m) ∉ test_TLS := by
   simp [test_TLS, Eve, Alice, Server]
-
-private theorem eve_intercepted_not_in_trace (m : Message) :
-    (Event.gets Eve m) ∉ test_TLS := by
-  simp [test_TLS]
 
 
 
