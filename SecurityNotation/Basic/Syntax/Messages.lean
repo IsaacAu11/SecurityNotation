@@ -1,13 +1,31 @@
 import Std
-import SecurityNotation.Basic.Syntax.Nonces  
-import SecurityNotation.Basic.Syntax.Keys
 import SecurityNotation.Basic.Syntax.Principal
+import SecurityNotation.Basic.Syntax.Nonces
+import SecurityNotation.Basic.Syntax.Keys
 
-inductive Message : Type
-  | message : String -> Message
-  | agent  : Principal → Message
-  | nonce : Nonce → Message
-  | key   : Key → Message
-  | pair  : Message → Message → Message
-  | enc   : Message → Key → Message
-  deriving Repr, DecidableEq
+inductive BaseMessage : Type
+| message : String → BaseMessage
+| agent : Principal → BaseMessage
+| nonce : Nonce → BaseMessage
+| key : Key → BaseMessage
+deriving DecidableEq, Repr
+
+inductive MessageEnc1 : Type
+| base : BaseMessage → MessageEnc1
+| enc : List BaseMessage → Key → MessageEnc1
+deriving DecidableEq, Repr
+
+inductive MessageEnc2 : Type
+| base : MessageEnc1 → MessageEnc2
+| enc : List MessageEnc1 → Key → MessageEnc2
+deriving DecidableEq, Repr
+
+def alice : Principal := {id := 1, name := "Alice", role := Role.initiator, known_principals := []}
+
+def n : Nonce := {randomNum := 100, principal := alice}
+def k : Key := Key.new 1 keyType.publicKey (some alice) [alice]
+
+def encryptedMessage : MessageEnc1 :=
+  MessageEnc1.enc [BaseMessage.nonce n, BaseMessage.message "Hello"] k
+
+#eval encryptedMessage
