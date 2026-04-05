@@ -21,6 +21,8 @@ def deriveSessionKey (pms : Nonce) (cn sn : Nonce) : Key :=
   Key.new 3 keyType.sessionKey none [Alice, Server]
 
 def sessionKey : Key := deriveSessionKey preMasterSecret aliceNonce serverNonce
+  -- ⟨⟩ = tuple
+  -- {| |} = encryption of a message
 
 def test_TLS : Trace := [
   -- Step 1: Alice sends her nonce
@@ -77,63 +79,15 @@ theorem serverDerivePremastersecret :
 
 section EveCannotDerivePreMasterSecret
 
---firstly some helper theorems
-
--- Step 1: Eve has zero trace events, these are used to prove that Eve has not interacted with the trace
-private theorem eve_sent_not_in_trace (r : Principal) (m : Message) :
-    (Event.send Eve r m) ∉ test_TLS := by
-  simp [test_TLS, Eve, Alice, Server]
-
-private theorem eve_received_not_in_trace (m : Message) :
-    (Event.recieve Eve m) ∉ test_TLS := by
-  simp [test_TLS, Eve, Alice, Server]
-
-
--- here we create a new noncefree inductive predicate to prove that Eve never recieves a premastersecret (nonce)
--- this is needed as pair_unppack and decrypt are both recursive as the inside of each are both messages that could possibly
--- contain aother pair that would need to be unpacked or an encoded message that needs decrypting
--- we use nonce free so that once we look at the message underneath, as long as it falls under nonce free, we can conclude
--- that putting them together or encrypting them doesnt give us a nonce so it cannot possibly be in there.
-
-inductive NonceFree : Message → Prop where
-  | msg   : ∀ s,     NonceFree (Message.message s)
-  | agent : ∀ p,     NonceFree (Message.agent p)
-  | key   : ∀ k,     NonceFree (Message.key k)
-  | pair  : ∀ m1 m2, NonceFree m1 → NonceFree m2 → NonceFree (Message.pair m1 m2)
-  | enc   : ∀ m k,   NonceFree m  → NonceFree (Message.enc m k)
-
-
--- here we are applying the nonce free predicate to conclude that Eve cannot know the premastersecret
--- given the message and h, we can apply it to either the inductive typing to see that there aren't any nonces
--- in the Nonce free type so she cannot possibly know premaster secret, or we use the helper theorems
--- to prove that they were never in the trace.
-
-
-theorem eve_knows_nonce_free (m : Message) (h : Knows Eve test_TLS m) : NonceFree m := by
-  induction h with
-  | knows_agents a _            => exact NonceFree.agent a
-  | knows_public_keys k _       => exact NonceFree.key k
-  | knows_own_private_key k _ _ => exact NonceFree.key k
-  | held_keys k _               => exact NonceFree.key k
-  | sent r _ ht                 => exact absurd ht (eve_sent_not_in_trace r _)
-  | received s ht             => exact absurd ht (eve_received_not_in_trace s)
-  | pair_pack _ _ _ _ ih1 ih2   => exact NonceFree.pair _ _ ih1 ih2
-  | encrypt _ _ _ _ ihm _       => exact NonceFree.enc _ _ ihm
-  -- what we do here is take the left half of a pair and use exact to prove it is nonce free
-  | pair_unpack_l _ _ _ ih      =>
-      cases ih with | pair _ _ h1 _ => exact h1
-  -- the same here but with the right half
-  | pair_unpack_r _ _ _ ih      =>
-      cases ih with | pair _ _ _ h2 => exact h2
-  -- this applies the same logic but with encryption, given an enc message, it is only nonce free if the message inside
-  -- is nonce free. therefore we encode the message and exact hm to prove it is nonce free.
-  | decrypt _ _ _ _ _ _ _ _ ih_enc _ =>
-      cases ih_enc with | enc _ _ hm => exact hm
-
--- then we have the final proof which states that she doesnt know the premastersecret by applying the previous theorems
-theorem EveCannotDerivePremastersecret :
-    ¬ Knows Eve test_TLS (Message.nonce preMasterSecret) := by
+theorem eveCannotDerivePremasterSecret :
+  ¬ Knows Eve test_TLS (NON preMasterSecret) := by
   intro h
-  cases eve_knows_nonce_free _ h
+  cases h with
+  | sent r _ ht => simp [test_TLS, Eve, Alice, Server] at ht
+  | received s _ ht => simp [test_TLS, Eve, Alice, Server] at ht
+  | intercepted _ ht => simp [test_TLS, Eve, Alice, Server] at ht\
+  -- big issue with this, when proving that eve can not get premaster secret
+  -- it can lead to a loop of tuple_unpack and pack rules, causing an ininite loop
+  | tuple_unpack ms _ h h_in =>
 
 end EveCannotDerivePreMasterSecret
