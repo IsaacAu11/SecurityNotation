@@ -6,56 +6,55 @@ import SecurityNotation.Basic.Utils.Notation
 
 section Knows
 
-inductive Knows (p : Principal) (t : Trace) : Message → Prop where
-  -- === initial knowledge ===
-  | knows_agents : ∀ (a : Principal),
-      a.id ∈ p.known_principals →
-      Knows p t (MessageEnc2.base (MessageEnc1.base (BaseMessage.agent a)))
-  | knows_public_keys : ∀ (k : Key),
-      k.type = keyType.publicKey →
-      Knows p t (MessageEnc2.base (MessageEnc1.base (BaseMessage.key k)))
-  | knows_own_private_key : ∀ (k : Key),
-      k.type = keyType.privateKey →
-      k.owner = some p →
-      Knows p t (MessageEnc2.base (MessageEnc1.base (BaseMessage.key k)))
-  | held_keys : ∀ (k : Key),
-      p ∈ k.holders →
-      Knows p t (MessageEnc2.base (MessageEnc1.base (BaseMessage.key k)))
+inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
+    -- === initial knowledge ===
+    | knows_agents : ∀ (a : Principal),
+        a.id ∈ p.known_principals →
+        Knows p t (AGT a)
+    | knows_public_keys : ∀ (k : Key),
+        k.type = keyType.publicKey →
+        Knows p t (KEY k)
+    | knows_own_private_key : ∀ (k : Key),
+        k.type = keyType.privateKey →
+        k.owner = some p →
+        Knows p t (KEY k)
+    | held_keys : ∀ (k : Key),
+        p ∈ k.holders →
+        Knows p t (KEY k)
 
-  -- === trace knowledge ===
-  | sent : ∀ r m,
-      (Event.send p r m) ∈ t →
-      Knows p t m
-  | received : ∀ s m,
-      (Event.send s p m) ∈ t →
-      Knows p t m
-  | intercepted : ∀ m,
-      (Event.recieve p m) ∈ t →
-      Knows p t m
+    -- === trace knowledge ===
+    | sent : ∀ r m,
+        (Event.send p r m) ∈ t →
+        Knows p t m
+    | received : ∀ s m,
+        (Event.send s p m) ∈ t →
+        Knows p t m
+    | intercepted : ∀ m,
+        (Event.recieve p m) ∈ t →
+        Knows p t m
 
-  -- === dolev-yao derivation rules ===
-  | tuple_unpack : ∀ ms m,
-      Knows p t (MessageEnc2.tuple ms) →
-      m ∈ ms →
-      Knows p t (MessageEnc2.base m)
-  | decrypt : ∀ ms k_pub k_priv m,
-      Knows p t (MessageEnc2.enc ms k_pub) →
-      Knows p t (MessageEnc2.base (MessageEnc1.base (BaseMessage.key k_priv))) →
-      m ∈ ms →
-      k_pub.type = keyType.publicKey →
-      k_priv.type = keyType.privateKey →
-      k_priv.paired_key_id = some k_pub.id →
-      Knows p t (MessageEnc2.base m)
-  | tuple_pack : ∀ ms,
-      (∀ m, m ∈ ms → Knows p t (MessageEnc2.base m)) →
-      Knows p t (MessageEnc2.tuple ms)
-  | encrypt : ∀ ms k,
-      (∀ m, m ∈ ms → Knows p t (MessageEnc2.base m)) →
-      Knows p t (MessageEnc2.base (MessageEnc1.base (BaseMessage.key k))) →
-      Knows p t (MessageEnc2.enc ms k)
-  -- === the adversary sees ===
-  | adversary_observes : ∀ s r m,
-      p.role = Role.adversary →
-      (Event.send s r m) ∈ t →
-      Knows p t m
-end Knows
+    -- ⟨⟩ = tuple
+    -- {| |} = encryption of a message
+
+    -- === dolev-yao derivation rules ===
+    | tuple_unpack : ∀ ms m,
+        Knows p t (⟨ ms ⟩) →
+        m ∈ ms →
+        Knows p t (MessageEnc2.base m)
+    -- bit different to before, it takes in a list of messages ms and a key
+    | decrypt : ∀ ms k_pub k_priv m,
+        Knows p t ({| ms |} k_pub) →
+        Knows p t (KEY k_priv) →
+        m ∈ ms →
+        k_pub.type = keyType.publicKey →
+        k_priv.type = keyType.privateKey →
+        k_priv.paired_key_id = some k_pub.id →
+        Knows p t (MessageEnc2.base m)
+    | tuple_pack : ∀ ms,
+        (∀ m, m ∈ ms → Knows p t (MessageEnc2.base m)) →
+        Knows p t (⟨ ms ⟩)
+    | encrypt : ∀ ms k,
+        (∀ m, m ∈ ms → Knows p t (MessageEnc2.base m)) →
+        Knows p t (KEY k) →
+        Knows p t ({| ms |} k)
+    end Knows
