@@ -6,6 +6,21 @@ import SecurityNotation.Basic.Utils.Notation
 
 section Knows
 
+inductive KnowsFromTrace (p : Principal) (t : Trace) : MessageEnc2 → Prop where
+    | sent : ∀ r m,
+        (Event.send p r m) ∈ t →
+        KnowsFromTrace p t m
+    | received : ∀ s m,
+        (Event.send s p m) ∈ t →
+        KnowsFromTrace p t m
+    | intercepted : ∀ m,
+        (Event.recieve p m) ∈ t →
+        KnowsFromTrace p t m
+    | adversary_observes : ∀ s r m,
+      p.role = Role.adversary →
+      (Event.send s r m) ∈ t →
+      KnowsFromTrace p t m
+
 inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
     -- === initial knowledge ===
     | knows_agents : ∀ (a : Principal),
@@ -23,24 +38,12 @@ inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
         Knows p t (KEY k)
 
     -- === trace knowledge ===
-    | sent : ∀ r m,
-        (Event.send p r m) ∈ t →
-        Knows p t m
-    | received : ∀ s m,
-        (Event.send s p m) ∈ t →
-        Knows p t m
-    | intercepted : ∀ m,
-        (Event.recieve p m) ∈ t →
-        Knows p t m
+    | from_trace : ∀ m, KnowsFromTrace p t m → Knows p t m
 
     -- ⟨⟩ = tuple
     -- {| |} = encryption of a message
 
-    -- === dolev-yao derivation rules ===
-    | tuple_unpack : ∀ ms m,
-        Knows p t (⟨ ms ⟩) →
-        m ∈ ms →
-        Knows p t (MessageEnc2.base m)
+
     -- bit different to before, it takes in a list of messages ms and a key
     | decrypt : ∀ ms k_pub k_priv m,
         Knows p t ({| ms |} k_pub) →
@@ -50,6 +53,15 @@ inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
         k_priv.type = keyType.privateKey →
         k_priv.paired_key_id = some k_pub.id →
         Knows p t (MessageEnc2.base m)
+    | decrypt_fst : ∀ ms k_pub k_priv m,
+        Knows p t (MessageEnc2.base (MessageEnc1.enc ms k_pub)) →
+        Knows p t (KEY k_priv) →
+        m ∈ ms →
+        k_pub.type = keyType.publicKey →
+        k_priv.type = keyType.privateKey →
+        k_priv.paired_key_id = some k_pub.id →
+        Knows p t (MessageEnc2.base (MessageEnc1.base m))
+
     | tuple_pack : ∀ ms,
         (∀ m, m ∈ ms → Knows p t (MessageEnc2.base m)) →
         Knows p t (⟨ ms ⟩)
@@ -57,4 +69,16 @@ inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
         (∀ m, m ∈ ms → Knows p t (MessageEnc2.base m)) →
         Knows p t (KEY k) →
         Knows p t ({| ms |} k)
+    | encrypt_fst : ∀ ms k,
+        (∀ m, m ∈ ms → Knows p t (.base (.base m))) →
+        Knows p t (KEY k) →
+        Knows p t (.base (MessageEnc1.enc ms k))
+    -- === the adversary sees ===
+
+    -- === Unpacking rules ===
+    | tuple_unpack_of_trace : ∀ ms m,
+        KnowsFromTrace p t (⟨ ms ⟩) →
+        m ∈ ms →
+        Knows p t (MessageEnc2.base m)
+
     end Knows

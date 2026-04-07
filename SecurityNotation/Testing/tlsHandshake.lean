@@ -5,6 +5,7 @@ import SecurityNotation.Basic.Syntax.Keys
 import SecurityNotation.Basic.Syntax.Messages
 import SecurityNotation.Basic.Syntax.Nonces
 import SecurityNotation.Basic.Utils.Notation
+import Mathlib
 
 def Alice  : Principal := {id := 1, name := "Alice",  role := Role.initiator, known_principals := [2]}
 def Server : Principal := {id := 2, name := "Server", role := Role.server,    known_principals := [1]}
@@ -49,33 +50,6 @@ def test_TLS : Trace := [
     ({| [base (BaseMessage.nonce aliceNonce)] |} sessionKey)
 ]
 
-theorem serverKnowsAliceNonce :
-    Knows Server test_TLS (NON aliceNonce) := by
-      apply Knows.received (s := Alice)
-      · decide
-
-theorem aliceKnowsServerPubKey :
-    Knows Alice test_TLS (KEY ServerPublicKey) := by
-      apply Knows.tuple_unpack (ms := [base (BaseMessage.nonce serverNonce), base (BaseMessage.key ServerPublicKey)])
-      · apply Knows.received (s := Server)
-        · decide
-      · decide
-
-theorem serverDerivePremastersecret :
-    Knows Server test_TLS (NON preMasterSecret) := by
-    apply Knows.decrypt (k_pub := ServerPublicKey) (k_priv := ServerPrivateKey)
-      (ms := [base (BaseMessage.nonce preMasterSecret)])
-    · apply Knows.received (s := Alice)
-      · decide
-    · apply Knows.knows_own_private_key
-      · rfl
-      · rfl
-    · decide
-    · rfl
-    · rfl
-    · rfl
-
-
 section EveCannotDerivePreMasterSecret
 
 private theorem eve_sent_not_in_trace (r : Principal) (m : MessageEnc2) :
@@ -86,66 +60,57 @@ private theorem eve_received_not_in_trace (s : Principal) (m : MessageEnc2) :
     (Event.send s Eve m) ∉ test_TLS := by
   simp [test_TLS, Eve, Alice, Server]
 
-private theorem eve_intercepted_not_in_trace (m : MessageEnc2) :
-    (Event.recieve Eve m) ∉ test_TLS := by
-  simp [test_TLS, Eve, Alice, Server]
+private theorem eve_knowsFromTrace (m : MessageEnc2) (h : KnowsFromTrace Eve test_TLS m ) :
+      m = (⟨ [base (BaseMessage.nonce serverNonce), base (BaseMessage.key ServerPublicKey)] ⟩) ∨
+      m = (NON aliceNonce) ∨
+      m = ({|[base (BaseMessage.nonce preMasterSecret)]|}ServerPublicKey) ∨
+      m = {|[base (BaseMessage.nonce aliceNonce)]|}sessionKey := by
+  cases h with
+  | sent r m h1 =>
+    simp [test_TLS, Eve, Alice, Server] at h1
+  | received s m h1 =>
+    simp [test_TLS, Eve, Alice, Server] at h1
+  | intercepted m h1 =>
+    simp [test_TLS, Eve, Alice, Server] at h1
+    subst h1
+    simp
+  | adversary_observes s r m h1 h2 =>
+    simp [test_TLS, Eve, Alice, Server] at h2
+    rcases h2 with h2 | h2 | h2 | h2
+    all_goals
+    · have h' := h2.2.2
+      subst h'
+      simp
 
 
-inductive BaseNonceFree : BaseMessage → Prop where
-  | msg   : ∀ s, BaseNonceFree (BaseMessage.message s)
-  | agent : ∀ p, BaseNonceFree (BaseMessage.agent p)
-  | key   : ∀ k, BaseNonceFree (BaseMessage.key k)
-
-inductive Enc1NonceFree : MessageEnc1 → Prop where
-  | base : ∀ b, BaseNonceFree b → Enc1NonceFree (MessageEnc1.base b)
-  | enc  : ∀ bs k, (∀ b, b ∈ bs → BaseNonceFree b) → Enc1NonceFree (MessageEnc1.enc bs k)
-
-inductive Enc2NonceFree : MessageEnc2 → Prop where
-  | base  : ∀ m1, Enc1NonceFree m1 → Enc2NonceFree (MessageEnc2.base m1)
-  | enc   : ∀ ms k, (∀ m, m ∈ ms → Enc1NonceFree m) → Enc2NonceFree (MessageEnc2.enc ms k)
-  | tuple : ∀ ms, (∀ m, m ∈ ms → Enc1NonceFree m) → Enc2NonceFree (MessageEnc2.tuple ms)
 
 
-theorem eve_knows_nonce_free (m : MessageEnc2) (h : Knows Eve test_TLS m) : Enc2NonceFree m := by
-  induction h with
-  | knows_agents a _ =>
-      exact Enc2NonceFree.base _ (Enc1NonceFree.base _ (BaseNonceFree.agent a))
-  | knows_public_keys k _ =>
-      exact Enc2NonceFree.base _ (Enc1NonceFree.base _ (BaseNonceFree.key k))
-  | knows_own_private_key k _ _ =>
-      exact Enc2NonceFree.base _ (Enc1NonceFree.base _ (BaseNonceFree.key k))
-  | held_keys k _ =>
-      exact Enc2NonceFree.base _ (Enc1NonceFree.base _ (BaseNonceFree.key k))
-  | sent r _ ht =>
-      exact absurd ht (eve_sent_not_in_trace r _)
-  | received s _ ht =>
-      exact absurd ht (eve_received_not_in_trace s _)
-  | intercepted _ ht =>
-      exact absurd ht (eve_intercepted_not_in_trace _)
-  | tuple_unpack ms _ _ h_in ih =>
-      cases ih with
-      | tuple _ h_all => exact Enc2NonceFree.base _ (h_all _ h_in)
-  | decrypt ms k_pub k_priv m_inner _ _ h_in _ _ _ ih_enc _ =>
-      cases ih_enc with
-      | enc _ _ h_all => exact Enc2NonceFree.base _ (h_all _ h_in)
-  | tuple_pack ms _ ih =>
-      exact Enc2NonceFree.tuple ms (fun m hm => by
-        have := ih m hm
-        cases this with | base m1 h1 => exact h1)
-  | encrypt ms k _ _ ih_ms _ =>
-      exact Enc2NonceFree.enc ms k (fun m hm => by
-        have := ih_ms m hm
-        cases this with | base m1 h1 => exact h1)
 
+theorem eve_not_knowFromTrace_preMasterSecret :
+    ¬ KnowsFromTrace Eve test_TLS (NON preMasterSecret) := by
+  intro h
+  have h1 := eve_knowsFromTrace (NON preMasterSecret) h
+  simp [aliceNonce, preMasterSecret] at h1
 
 theorem EveCannotDerivePremastersecret :
     ¬ Knows Eve test_TLS (NON preMasterSecret) := by
   intro h
-  have hnf := eve_knows_nonce_free _ h
-  cases hnf with
-  | base m1 h1 =>
-    cases h1 with
-    | base b hb =>
-      cases hb
+  have hl := eve_not_knowFromTrace_preMasterSecret
+  cases h with
+  | from_trace m h1 => simp_all
+  | decrypt => sorry
+  | decrypt_fst => sorry
+  | tuple_unpack_of_trace ms h1 h2 h =>
+    have h3 := eve_knowsFromTrace (⟨ ms ⟩) h2
+    simp at h3
+    subst h3
+    simp at h
+    sorry
+
+
+
+
+
+
 
 end EveCannotDerivePreMasterSecret
