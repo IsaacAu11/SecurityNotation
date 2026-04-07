@@ -33,6 +33,8 @@ def test_TLS : Trace := [
     (⟨ [base (BaseMessage.nonce serverNonce), base (BaseMessage.key ServerPublicKey)] ⟩),
   Event.recieve Alice
     (⟨ [base (BaseMessage.nonce serverNonce), base (BaseMessage.key ServerPublicKey)] ⟩),
+  Event.recieve Eve
+    (⟨ [base (BaseMessage.nonce serverNonce), base (BaseMessage.key ServerPublicKey)] ⟩),
 
   -- Step 3: Alice sends encrypted premaster secret
   Event.send Alice Server
@@ -46,10 +48,6 @@ def test_TLS : Trace := [
   Event.recieve Alice
     ({| [base (BaseMessage.nonce aliceNonce)] |} sessionKey)
 ]
-
--- ============================================================
--- Positive proofs: principals can derive what they should
--- ============================================================
 
 theorem serverKnowsAliceNonce :
     Knows Server test_TLS (NON aliceNonce) := by
@@ -77,13 +75,8 @@ theorem serverDerivePremastersecret :
     · rfl
     · rfl
 
--- ============================================================
--- Negative proof: Eve cannot derive the premaster secret
--- ============================================================
 
 section EveCannotDerivePreMasterSecret
-
--- Step 1: Eve has zero trace events — she never sends, receives, or intercepts anything
 
 private theorem eve_sent_not_in_trace (r : Principal) (m : MessageEnc2) :
     (Event.send Eve r m) ∉ test_TLS := by
@@ -97,11 +90,6 @@ private theorem eve_intercepted_not_in_trace (m : MessageEnc2) :
     (Event.recieve Eve m) ∉ test_TLS := by
   simp [test_TLS, Eve, Alice, Server]
 
--- Step 2: NonceFree predicates for each message layer
--- We define these at each layer of the message hierarchy.
--- A message is "nonce free" if it contains no nonce at any depth.
--- This lets us cut off the recursive derivation rules: if everything
--- Eve can derive is nonce-free, she can never produce a nonce.
 
 inductive BaseNonceFree : BaseMessage → Prop where
   | msg   : ∀ s, BaseNonceFree (BaseMessage.message s)
@@ -117,12 +105,6 @@ inductive Enc2NonceFree : MessageEnc2 → Prop where
   | enc   : ∀ ms k, (∀ m, m ∈ ms → Enc1NonceFree m) → Enc2NonceFree (MessageEnc2.enc ms k)
   | tuple : ∀ ms, (∀ m, m ∈ ms → Enc1NonceFree m) → Enc2NonceFree (MessageEnc2.tuple ms)
 
--- Step 3: Everything Eve can derive from the trace is nonce-free
--- This mirrors the old proof structure:
---   - Initial knowledge constructors produce agents/keys → nonce free
---   - Trace constructors (sent/received/intercepted) → absurd via helper theorems
---   - Derivation rules (tuple_unpack, decrypt) → strip a layer, use inductive hypothesis
---   - Construction rules (tuple_pack, encrypt) → rebuild from nonce-free components
 
 theorem eve_knows_nonce_free (m : MessageEnc2) (h : Knows Eve test_TLS m) : Enc2NonceFree m := by
   induction h with
@@ -140,45 +122,30 @@ theorem eve_knows_nonce_free (m : MessageEnc2) (h : Knows Eve test_TLS m) : Enc2
       exact absurd ht (eve_received_not_in_trace s _)
   | intercepted _ ht =>
       exact absurd ht (eve_intercepted_not_in_trace _)
-  -- tuple_unpack: Eve knows a tuple, and m is one of its components
-  -- The IH tells us the tuple is nonce-free, so each component is nonce-free
   | tuple_unpack ms _ _ h_in ih =>
       cases ih with
       | tuple _ h_all => exact Enc2NonceFree.base _ (h_all _ h_in)
-  -- decrypt: Eve knows an encrypted message and the decryption key
-  -- The IH on the encrypted message tells us its contents are nonce-free
   | decrypt ms k_pub k_priv m_inner _ _ h_in _ _ _ ih_enc _ =>
       cases ih_enc with
       | enc _ _ h_all => exact Enc2NonceFree.base _ (h_all _ h_in)
-  -- tuple_pack: Eve constructs a tuple from components she knows
-  -- Each component is nonce-free by IH, so the tuple is nonce-free
   | tuple_pack ms _ ih =>
       exact Enc2NonceFree.tuple ms (fun m hm => by
         have := ih m hm
         cases this with | base m1 h1 => exact h1)
-  -- encrypt: Eve encrypts components she knows with a key she knows
-  -- Each component is nonce-free by IH, so the encryption is nonce-free
   | encrypt ms k _ _ ih_ms _ =>
       exact Enc2NonceFree.enc ms k (fun m hm => by
         have := ih_ms m hm
         cases this with | base m1 h1 => exact h1)
 
--- Step 4: The premaster secret IS a nonce, so it cannot be nonce-free → contradiction
--- We unwrap the layers: Enc2NonceFree → Enc1NonceFree → BaseNonceFree
--- and find that no BaseNonceFree constructor matches BaseMessage.nonce
 
 theorem EveCannotDerivePremastersecret :
     ¬ Knows Eve test_TLS (NON preMasterSecret) := by
   intro h
   have hnf := eve_knows_nonce_free _ h
-  -- NON expands to: MessageEnc2.base (MessageEnc1.base (BaseMessage.nonce preMasterSecret))
-  -- So we case split through the layers:
   cases hnf with
   | base m1 h1 =>
     cases h1 with
     | base b hb =>
-      -- hb : BaseNonceFree (BaseMessage.nonce preMasterSecret)
-      -- but BaseNonceFree has no constructor for nonce → no cases → QED
       cases hb
 
 end EveCannotDerivePreMasterSecret
