@@ -1,27 +1,40 @@
 -- keys : can be symmetric or asymmetric, public or private, session key
 import SecurityNotation.Basic.Syntax.Principal
 
+inductive KeyId : Type
+  | serverPublic
+  | serverPrivate
+  | session
+  | alicePublic
+  | alicePrivate
+  | other
+  deriving DecidableEq, Repr
+
+def KeyId.paired : KeyId → Option KeyId
+  | .serverPublic  => some .serverPrivate
+  | .serverPrivate => some .serverPublic
+  | .session       => none
+  | .alicePublic   => some .alicePrivate
+  | .alicePrivate  => some .alicePublic
+  | .other         => none
+
 inductive keyType : Type where
   | privateKey
   | publicKey
   | sessionKey
-  -- may add Ephemeral but will see
   deriving DecidableEq, Repr
 
 structure Key : Type where
   private mk ::
-  id : Nat
-  type : keyType
-  owner : Option Principal
-  holders : List Principal
-  paired_key_id : Option Nat
+  id       : KeyId
+  type     : keyType
+  owner    : Option Principal
+  holders  : List Principal
   deriving DecidableEq, Repr
 
--- add a holder to a key as finset does not work, must add holder to list and remove duplicates
 def Key.new
-  (id : Nat)
-  (t : keyType)
-  (owner : Option Principal)
-  (holders : List Principal)
-  (paired_id : Option Nat := none) : Key := 
-  Key.mk id t owner (holders.eraseDups) paired_id
+  (id      : KeyId)
+  (t       : keyType)
+  (owner   : Option Principal)
+  (holders : List Principal) : Key :=
+  Key.mk id t owner holders.eraseDups

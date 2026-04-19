@@ -25,7 +25,7 @@ deriving DecidableEq, Repr
 def alice : Principal := {id := 1, name := "Alice", role := Role.initiator, known_principals := []}
 
 def n : Nonce := {randomNum := 100, principal := alice}
-def k : Key := Key.new 1 keyType.publicKey (some alice) [alice]
+def k : Key := Key.new KeyId.alicePublic keyType.publicKey (some alice) [alice]
 
 def encryptedMessage1 : MessageEnc1 :=
   MessageEnc1.enc [BaseMessage.nonce n, BaseMessage.message "Hello"] k

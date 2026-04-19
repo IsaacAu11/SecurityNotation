@@ -16,53 +16,35 @@ def same (a b : Principal) : Bool :=
 #eval same (Principal.mk 1 "Alice" Role.responder []) (Principal.mk 1 "Alice" Role.responder [])
 #eval same (Principal.mk 1 "Bob" Role.responder []) (Principal.mk 1 "Alice" Role.responder [])
 
--- message encoding a message to a principal using a public key
-def message1 (a1 : String) (alice : Principal) (pKb : Key) : Message :=
-  Message.enc (Message.pair (Message.message a1) (Message.agent alice)) pKb
-
-def alice : Principal := {id := 1,name := "Alice",role :=  Role.initiator, known_principals := []}
-def keyA : Key := Key.new 1 keyType.publicKey (some alice) []
-
-#eval message1 "hello world!" alice keyA
+def alice : Principal := {id := 1, name := "Alice", role := Role.initiator, known_principals := []}
+def keyA : Key := Key.new KeyId.alicePublic keyType.publicKey (some alice) []
 
 --testing derives logic from logic.lean
 section DerivesTesting
 
--- alice knows any public key (from initial knowledge rules now in Knows)
-theorem alice_knows (m : Message) (k : Key) (t : Trace) :
-  k.type = keyType.publicKey →
-  m = Message.key k →
-  Knows alice t m := by
-  intro h_pub h_eq
-  subst h_eq
-  apply Knows.knows_public_keys
-  exact h_pub
-
 --testing for alice_decrypts
 --creating a private key for alice
 def alice_priv_key : Key :=
-  Key.new 1 keyType.privateKey (some alice) [alice] (some 2)
+  Key.new KeyId.alicePrivate keyType.privateKey (some alice) [alice]
 def alice_public_key : Key :=
-  Key.new 2 keyType.publicKey (some alice) [alice] (some 1)
+  Key.new KeyId.alicePublic keyType.publicKey (some alice) [alice]
 
--- FIX the key as priv and public key arent working 
-theorem alice_decrypt (m : Message) (t : Trace) :
-  Knows alice t (Message.enc m alice_public_key) →
-  Knows alice t m := by
-  intro h_enc_m
-  apply Knows.decrypt m alice_public_key alice_priv_key -- applies the decrypt rule that creates 5 subgoals for us to solve
-  . exact h_enc_m
-  . apply Knows.knows_own_private_key
-    . rfl
-    . rfl
+-- alice_decrypt: alice can decrypt a message encrypted with her public key
+-- using knows_own_private_key and the updated KeyId.paired pairing
+theorem alice_decrypt (ms : List MessageEnc1) (t : Trace) :
+  Knows alice t ({| ms |} alice_public_key) →
+  ∀ m, m ∈ ms → Knows alice t (MessageEnc2.base m) := by
+  intro h_enc m h_mem
+  apply Knows.decrypt ms alice_public_key alice_priv_key m
+  · exact h_enc
+  · apply Knows.knows_own_private_key
+    · rfl
+    · rfl
+  · exact h_mem
   · rfl
   · rfl
   · rfl
 
 #check alice_decrypt
-
-#check alice_knows
-
-#check Knows.decrypt
 
 end DerivesTesting

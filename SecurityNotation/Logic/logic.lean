@@ -26,23 +26,19 @@ inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
     | knows_agents : ∀ (a : Principal),
         a.id ∈ p.known_principals →
         Knows p t (AGT a)
-    | knows_public_keys : ∀ (k : Key),
+    | knows_public_key_from_trace : ∀ (k : Key),
         k.type = keyType.publicKey →
+        KnowsFromTrace p t (KEY k) →
         Knows p t (KEY k)
     | knows_own_private_key : ∀ (k : Key),
         k.type = keyType.privateKey →
         k.owner = some p →
         Knows p t (KEY k)
-    | held_keys : ∀ (k : Key),
-        p ∈ k.holders →
-        Knows p t (KEY k)
-
     -- === trace knowledge ===
     | from_trace : ∀ m, KnowsFromTrace p t m → Knows p t m
 
     -- ⟨⟩ = tuple
     -- {| |} = encryption of a message
-
 
     -- bit different to before, it takes in a list of messages ms and a key
     | decrypt : ∀ ms k_pub k_priv m,
@@ -51,7 +47,7 @@ inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
         m ∈ ms →
         k_pub.type = keyType.publicKey →
         k_priv.type = keyType.privateKey →
-        k_priv.paired_key_id = some k_pub.id →
+        KeyId.paired k_pub.id = some k_priv.id →
         Knows p t (MessageEnc2.base m)
     | decrypt_fst : ∀ ms k_pub k_priv m,
         Knows p t (MessageEnc2.base (MessageEnc1.enc ms k_pub)) →
@@ -59,9 +55,8 @@ inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
         m ∈ ms →
         k_pub.type = keyType.publicKey →
         k_priv.type = keyType.privateKey →
-        k_priv.paired_key_id = some k_pub.id →
+        KeyId.paired k_pub.id = some k_priv.id →
         Knows p t (MessageEnc2.base (MessageEnc1.base m))
-
     | tuple_pack : ∀ ms,
         (∀ m, m ∈ ms → Knows p t (MessageEnc2.base m)) →
         Knows p t (⟨ ms ⟩)
@@ -73,8 +68,6 @@ inductive Knows (p : Principal) (t : Trace) : MessageEnc2 → Prop where
         (∀ m, m ∈ ms → Knows p t (.base (.base m))) →
         Knows p t (KEY k) →
         Knows p t (.base (MessageEnc1.enc ms k))
-    -- === the adversary sees ===
-
     -- === Unpacking rules ===
     | tuple_unpack_of_trace : ∀ ms m,
         KnowsFromTrace p t (⟨ ms ⟩) →
