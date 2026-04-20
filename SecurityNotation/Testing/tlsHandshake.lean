@@ -122,12 +122,13 @@ theorem EveCannotDerivePremastersecret :
   | from_trace m h1 => simp_all
   | decrypt ms k_pub k_priv m h_enc h_key h_mem h_pub h_priv h_paired =>
     exact absurd h_key (eve_knows_no_private_key k_priv h_priv)
-  | decrypt_fst => sorry
+  | decrypt_fst ms k_pub k_priv m h_enc h_key h_mem h_pub h_priv h_paired =>
+    exact absurd h_key (eve_knows_no_private_key k_priv h_priv)
   | tuple_unpack_of_trace ms h1 h2 h =>
     have h3 := eve_knowsFromTrace (⟨ ms ⟩) h2
     simp at h3
     subst h3
-    simp at h
-    sorry
+    simp only [List.mem_cons] at h
+    rcases h with h | h <;> exact absurd h (by decide)
 
 end EveCannotDerivePreMasterSecret
