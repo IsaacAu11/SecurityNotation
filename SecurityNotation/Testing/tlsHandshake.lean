@@ -76,37 +76,53 @@ private theorem eve_knowsFromTrace (m : MessageEnc2) (h : KnowsFromTrace Eve tes
       subst h'
       simp
 
-private theorem eve_knows_no_private_key (k : Key)
-    (htype : k.type = keyType.privateKey)
+private theorem eve_knows_no_private_key
+    (eve_no_priv : ∀ k : Key, k.type = keyType.privateKey → k.owner ≠ some Eve)
+    (k : Key) (htype : k.type = keyType.privateKey)
     : ¬ Knows Eve test_TLS (KEY k) := by
   intro h
-  induction h with
-  | knows_public_key_from_trace k hpub _ =>
-    simp_all
-  | knows_own_private_key k hpriv hown =>
-    -- k.owner = some Eve, but no key has owner = some Eve
-    cases k.id with
-    | serverPublic  => simp [ServerPublicKey,  Key.new, Eve, Server] at hown
-    | serverPrivate => simp [ServerPrivateKey, Key.new, Eve, Server] at hown
-    | session       => simp [sessionKey,       Key.new, Eve, Server] at hown
-    | alicePublic   => simp [Key.new, Eve] at hown
-    | alicePrivate  => simp [Key.new, Eve] at hown
-    | other         => simp [Key.new, Eve] at hown
+  generalize hkm : (KEY k : MessageEnc2) = km at h
+  induction h generalizing k with
+  | knows_agents a _ =>
+    cases hkm
+  | knows_public_key_from_trace k' hpub _ =>
+    injection hkm with h1; injection h1 with h2; injection h2 with h3; subst h3
+    rw [hpub] at htype; exact keyType.noConfusion htype
+  | knows_own_private_key k' _ hown =>
+    injection hkm with h1; injection h1 with h2; injection h2 with h3; subst h3
+    exact absurd hown (eve_no_priv k htype)
   | from_trace m htrace =>
+    subst hkm
     cases htrace with
-    | sent r m h1      => simp [test_TLS, Eve, Alice, Server] at h1
-    | received s m h1  => simp [test_TLS, Eve, Alice, Server] at h1
-    | intercepted m h1 => simp [test_TLS, Eve, Alice, Server] at h1
+    | sent r m h1       => simp [test_TLS, Eve, Alice, Server] at h1
+    | received s m h1   => simp [test_TLS, Eve, Alice, Server] at h1
+    | intercepted m h1  => simp [test_TLS, Eve, Alice, Server] at h1
     | adversary_observes s r m _ h2 => simp [test_TLS, Eve, Alice, Server] at h2
   | decrypt ms k_pub k_priv m h_enc h_key h_mem h_pub h_priv h_paired ih_enc ih_key =>
-    exact absurd h_key (ih_key h_priv)
+    -- ih_key : ∀ k, k.type = privateKey → KEY k = KEY k_priv → False
+    exact ih_key k_priv h_priv rfl
   | decrypt_fst ms k_pub k_priv m h_enc h_key h_mem h_pub h_priv h_paired ih_enc ih_key =>
-    exact absurd h_key (ih_key h_priv)
-  | knows_agents => simp_all
-  | tuple_pack => simp_all
-  | encrypt => simp_all
-  | encrypt_fst => simp_all
-  | tuple_unpack_of_trace => simp_all
+    exact ih_key k_priv h_priv rfl
+  | tuple_pack          => cases hkm
+  | encrypt             => cases hkm
+  | encrypt_fst         => cases hkm
+  | tuple_unpack_of_trace ms m htrace hmem =>
+    -- hkm : KEY k = MessageEnc2.base m, so m = MessageEnc1.base (BaseMessage.key k)
+    injection hkm with hm
+    subst hm
+    -- Now m is fixed; reuse the trace classifier.
+    have ht := eve_knowsFromTrace ⟨ms⟩ htrace
+    rcases ht with h | h | h | h
+    · injection h with hms
+      subst hms
+      simp at hmem
+      rcases hmem with hm | hm
+      · cases hm
+      · injection hm with hm
+        injection hm with hm
+        subst hm
+        simp [ServerPublicKey, Key.new] at htype
+    all_goals cases h
 
 theorem eve_not_knowFromTrace_preMasterSecret :
     ¬ KnowsFromTrace Eve test_TLS (NON preMasterSecret) := by
@@ -114,16 +130,17 @@ theorem eve_not_knowFromTrace_preMasterSecret :
   have h1 := eve_knowsFromTrace (NON preMasterSecret) h
   simp [aliceNonce, preMasterSecret] at h1
 
-theorem EveCannotDerivePremastersecret :
+theorem EveCannotDerivePremastersecret
+    (eve_no_priv : ∀ k : Key, k.type = keyType.privateKey → k.owner ≠ some Eve) :
     ¬ Knows Eve test_TLS (NON preMasterSecret) := by
   intro h
   have hl := eve_not_knowFromTrace_preMasterSecret
   cases h with
   | from_trace m h1 => simp_all
   | decrypt ms k_pub k_priv m h_enc h_key h_mem h_pub h_priv h_paired =>
-    exact absurd h_key (eve_knows_no_private_key k_priv h_priv)
+    exact absurd h_key (eve_knows_no_private_key eve_no_priv k_priv h_priv)
   | decrypt_fst ms k_pub k_priv m h_enc h_key h_mem h_pub h_priv h_paired =>
-    exact absurd h_key (eve_knows_no_private_key k_priv h_priv)
+    exact absurd h_key (eve_knows_no_private_key eve_no_priv k_priv h_priv)
   | tuple_unpack_of_trace ms h1 h2 h =>
     have h3 := eve_knowsFromTrace (⟨ ms ⟩) h2
     simp at h3
