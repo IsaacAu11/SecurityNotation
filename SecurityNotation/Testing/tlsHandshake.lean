@@ -28,8 +28,6 @@ def test_TLS : Trace := [
     (⟨ [base (BaseMessage.nonce serverNonce), base (BaseMessage.key ServerPublicKey)] ⟩),
   Event.recieve Alice
     (⟨ [base (BaseMessage.nonce serverNonce), base (BaseMessage.key ServerPublicKey)] ⟩),
-  Event.recieve Eve
-    (⟨ [base (BaseMessage.nonce serverNonce), base (BaseMessage.key ServerPublicKey)] ⟩),
 
   -- Step 3: Alice sends encrypted premaster secret
   Event.send Alice Server
@@ -66,10 +64,8 @@ private theorem eve_knowsFromTrace (m : MessageEnc2) (h : KnowsFromTrace Eve tes
     simp [test_TLS, Eve, Alice, Server] at h1
   | intercepted m h1 =>
     simp [test_TLS, Eve, Alice, Server] at h1
-    subst h1
-    simp
   | adversary_observes s r m h1 h2 =>
-    simp [test_TLS, Eve, Alice, Server] at h2
+    simp [test_TLS, Alice, Server] at h2
     rcases h2 with h2 | h2 | h2 | h2
     all_goals
     · have h' := h2.2.2
@@ -77,52 +73,61 @@ private theorem eve_knowsFromTrace (m : MessageEnc2) (h : KnowsFromTrace Eve tes
       simp
 
 private theorem eve_knows_no_private_key
-    (eve_no_priv : ∀ k : Key, k.type = keyType.privateKey → k.owner ≠ some Eve)
-    (k : Key) (htype : k.type = keyType.privateKey)
-    : ¬ Knows Eve test_TLS (KEY k) := by
-  intro h
-  generalize hkm : (KEY k : MessageEnc2) = km at h
-  induction h generalizing k with
-  | knows_agents a _ =>
-    cases hkm
-  | knows_public_key_from_trace k' hpub _ =>
-    injection hkm with h1; injection h1 with h2; injection h2 with h3; subst h3
-    rw [hpub] at htype; exact keyType.noConfusion htype
-  | knows_own_private_key k' _ hown =>
-    injection hkm with h1; injection h1 with h2; injection h2 with h3; subst h3
-    exact absurd hown (eve_no_priv k htype)
-  | from_trace m htrace =>
-    subst hkm
-    cases htrace with
-    | sent r m h1       => simp [test_TLS, Eve, Alice, Server] at h1
-    | received s m h1   => simp [test_TLS, Eve, Alice, Server] at h1
-    | intercepted m h1  => simp [test_TLS, Eve, Alice, Server] at h1
-    | adversary_observes s r m _ h2 => simp [test_TLS, Eve, Alice, Server] at h2
-  | decrypt ms k_pub k_priv m h_enc h_key h_mem h_pub h_priv h_paired ih_enc ih_key =>
-    -- ih_key : ∀ k, k.type = privateKey → KEY k = KEY k_priv → False
-    exact ih_key k_priv h_priv rfl
-  | decrypt_fst ms k_pub k_priv m h_enc h_key h_mem h_pub h_priv h_paired ih_enc ih_key =>
-    exact ih_key k_priv h_priv rfl
-  | tuple_pack          => cases hkm
-  | encrypt             => cases hkm
-  | encrypt_fst         => cases hkm
-  | tuple_unpack_of_trace ms m htrace hmem =>
-    -- hkm : KEY k = MessageEnc2.base m, so m = MessageEnc1.base (BaseMessage.key k)
-    injection hkm with hm
-    subst hm
-    -- Now m is fixed; reuse the trace classifier.
-    have ht := eve_knowsFromTrace ⟨ms⟩ htrace
-    rcases ht with h | h | h | h
-    · injection h with hms
-      subst hms
-      simp at hmem
-      rcases hmem with hm | hm
-      · cases hm
-      · injection hm with hm
-        injection hm with hm
-        subst hm
-        simp [ServerPublicKey, Key.new] at htype
-    all_goals cases h
+    (eve_no_priv : ∀ key : Key, key.type = keyType.privateKey → key.owner ≠ some Eve)
+    (targetKey : Key) (hTargetIsPrivate : targetKey.type = keyType.privateKey)
+    : ¬ Knows Eve test_TLS (KEY targetKey) := by
+  intro hEveKnows
+  -- Generalise the concrete index KEY targetKey to a fresh variable msgVar,
+  -- so that the induction motive can quantify over targetKey.
+  generalize hMsgEq : (KEY targetKey : MessageEnc2) = msgVar at hEveKnows
+  induction hEveKnows generalizing targetKey with
+  -- Eve "knows" an agent identity, not a key — impossible.
+  | knows_agents agent _ =>
+    cases hMsgEq
+  -- Eve knows a *public* key from the trace, but targetKey is private — contradiction.
+  | knows_public_key_from_trace pubKey hIsPublic _ =>
+    injection hMsgEq with hBase; injection hBase with hBase2; injection hBase2 with hKeyEq
+    subst hKeyEq
+    rw [hIsPublic] at hTargetIsPrivate
+    exact keyType.noConfusion hTargetIsPrivate
+  -- Eve claims to own targetKey. But eve_no_priv says Eve owns no private keys.
+  | knows_own_private_key ownedKey _ hOwner =>
+    injection hMsgEq with hBase; injection hBase with hBase2; injection hBase2 with hKeyEq
+    subst hKeyEq
+    exact absurd hOwner (eve_no_priv targetKey hTargetIsPrivate)
+  -- Eve learned the key directly from the trace — but no private key appears in test_TLS.
+  | from_trace msg hTraceWitness =>
+    subst hMsgEq
+    cases hTraceWitness with
+    | sent recipient msg hInTrace          => simp [test_TLS, Eve, Alice, Server] at hInTrace
+    | received sender msg hInTrace         => simp [test_TLS, Eve, Alice, Server] at hInTrace
+    | intercepted msg hInTrace             => simp [test_TLS, Eve, Alice, Server] at hInTrace
+    | adversary_observes sender recipient msg _ hInTrace => simp [test_TLS, Eve, Alice, Server] at hInTrace
+  -- Eve decrypted something to get KEY targetKey — the IH on the private key subproof
+  -- rules this out recursively (a private key can't itself be the decryption key).
+  | decrypt msgs encKey decKey plainMsg hEncKnows hDecKeyKnows hMsgMem hEncIsPublic hDecIsPrivate hPaired ihEncKnows ihDecKeyKnows =>
+    exact ihDecKeyKnows decKey hDecIsPrivate rfl
+  | decrypt_fst msgs encKey decKey plainMsg hEncKnows hDecKeyKnows hMsgMem hEncIsPublic hDecIsPrivate hPaired ihEncKnows ihDecKeyKnows =>
+    exact ihDecKeyKnows decKey hDecIsPrivate rfl
+  -- Eve packed a tuple or encrypted something — the result isn't a KEY, impossible.
+  | tuple_pack  => cases hMsgEq
+  | encrypt     => cases hMsgEq
+  | encrypt_fst => cases hMsgEq
+  -- Eve unpacked a tuple from the trace. The only tuple Eve observes is
+  -- ⟨serverNonce, ServerPublicKey⟩; ServerPublicKey is public, not private.
+  | tuple_unpack_of_trace tupleContents innerMsg hTupleTrace hMemberOf =>
+    injection hMsgEq with hInnerEq
+    subst hInnerEq
+    have hTupleOptions := eve_knowsFromTrace ⟨tupleContents⟩ hTupleTrace
+    rcases hTupleOptions with hOpt | hOpt | hOpt | hOpt
+    · injection hOpt with hContentsEq
+      subst hContentsEq
+      simp at hMemberOf
+      rcases hMemberOf with hCase | hCase
+      · cases hCase
+      · injection hCase with hCase; injection hCase with hCase; subst hCase
+        simp [ServerPublicKey, Key.new] at hTargetIsPrivate
+    all_goals cases hOpt
 
 theorem eve_not_knowFromTrace_preMasterSecret :
     ¬ KnowsFromTrace Eve test_TLS (NON preMasterSecret) := by
