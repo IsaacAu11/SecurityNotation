@@ -18,7 +18,7 @@ def KeyId.paired : KeyId → Option KeyId
   | .alicePrivate  => some .alicePublic
   | .other         => none
 
-inductive keyType : Type where
+inductive KeyType : Type where
   | privateKey
   | publicKey
   | sessionKey
@@ -27,14 +27,14 @@ inductive keyType : Type where
 structure Key : Type where
   private mk ::
   id       : KeyId
-  type     : keyType
+  type     : KeyType
   owner    : Option Principal
   holders  : List Principal
   deriving DecidableEq, Repr
 
 def Key.new
   (id      : KeyId)
-  (t       : keyType)
+  (t       : KeyType)
   (owner   : Option Principal)
   (holders : List Principal) : Key :=
   Key.mk id t owner holders.eraseDups

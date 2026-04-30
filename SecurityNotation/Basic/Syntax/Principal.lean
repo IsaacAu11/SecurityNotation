@@ -11,5 +11,5 @@ structure Principal : Type where
   id : Nat
   name : String
   role : Role
-  known_principals : List Nat 
+  knownPrincipals : List Nat
   deriving DecidableEq, Repr -- means i can compare principals, and i can display it for debugging with print

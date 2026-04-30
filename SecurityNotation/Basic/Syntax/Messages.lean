@@ -22,19 +22,19 @@ inductive MessageEnc2 : Type
 deriving DecidableEq, Repr
 
 
-def alice : Principal := {id := 1, name := "Alice", role := Role.initiator, known_principals := []}
+private def exampleAlice : Principal := {id := 1, name := "Alice", role := Role.initiator, knownPrincipals := []}
 
-def n : Nonce := {randomNum := 100, principal := alice}
-def k : Key := Key.new KeyId.alicePublic keyType.publicKey (some alice) [alice]
+private def exampleNonce : Nonce := {randomNum := 100, principal := exampleAlice}
+private def exampleKey : Key := Key.new KeyId.alicePublic KeyType.publicKey (some exampleAlice) [exampleAlice]
 
-def encryptedMessage1 : MessageEnc1 :=
-  MessageEnc1.enc [BaseMessage.nonce n, BaseMessage.message "Hello"] k
+private def encryptedMessage1 : MessageEnc1 :=
+  MessageEnc1.enc [BaseMessage.nonce exampleNonce, BaseMessage.message "Hello"] exampleKey
 
-def encryptedMessage2 : MessageEnc2 :=
-  MessageEnc2.enc [MessageEnc1.enc [BaseMessage.nonce n] k, MessageEnc1.base (BaseMessage.message "Hello")] k
+private def encryptedMessage2 : MessageEnc2 :=
+  MessageEnc2.enc [MessageEnc1.enc [BaseMessage.nonce exampleNonce] exampleKey, MessageEnc1.base (BaseMessage.message "Hello")] exampleKey
 
-def encryptedMessage3 : MessageEnc2 :=
-  MessageEnc2.base (MessageEnc1.base (BaseMessage.nonce n))
+private def encryptedMessage3 : MessageEnc2 :=
+  MessageEnc2.base (MessageEnc1.base (BaseMessage.nonce exampleNonce))
 
 
 #eval encryptedMessage1
